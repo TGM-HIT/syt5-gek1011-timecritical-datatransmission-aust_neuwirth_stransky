@@ -10,8 +10,11 @@
 #define GREEN_PIN  3
 
 // Define task priority levels
-#define HIGH_PRIORITY 4
-#define LOW_PRIORITY  5
+#define HIGH_PRIORITY 1
+#define LOW_PRIORITY  0
+
+// define the state time in ms
+#define STATE_DURATION 4000
 
 // Create GPIO objects for each light
 static pico_cpp::GPIO_Pin redLight(RED_PIN, pico_cpp::PinType::Output);
@@ -51,11 +54,11 @@ void stateGreen() {
 void stateGreenBlinking() {
     redLight.set_low();
     yellowLight.set_low();
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         greenLight.set_high();
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(STATE_DURATION/8));
         greenLight.set_low();
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(STATE_DURATION/8));
     }
 }
 
@@ -72,7 +75,7 @@ void redTask(void *pvParameters) {
     for (;;) {
         if (uxTaskPriorityGet(NULL) == HIGH_PRIORITY) {
             stateRed();
-            vTaskDelay(pdMS_TO_TICKS(4000));
+            vTaskDelay(pdMS_TO_TICKS(STATE_DURATION));
             vTaskPrioritySet(redYellowTaskHandle, HIGH_PRIORITY);
             vTaskPrioritySet(NULL, LOW_PRIORITY);
         } else {
@@ -85,7 +88,7 @@ void redYellowTask(void *pvParameters) {
     for (;;) {
         if (uxTaskPriorityGet(NULL) == HIGH_PRIORITY) {
             stateRedYellow();
-            vTaskDelay(pdMS_TO_TICKS(4000)); // 4-second duration
+            vTaskDelay(pdMS_TO_TICKS(STATE_DURATION)); // 4-second duration
             // Transition to next state: Green
             vTaskPrioritySet(greenTaskHandle, HIGH_PRIORITY);
             vTaskPrioritySet(NULL, LOW_PRIORITY);
@@ -99,7 +102,7 @@ void greenTask(void *pvParameters) {
     for (;;) {
         if (uxTaskPriorityGet(NULL) == HIGH_PRIORITY) {
             stateGreen();
-            vTaskDelay(pdMS_TO_TICKS(4000)); // 4-second duration
+            vTaskDelay(pdMS_TO_TICKS(STATE_DURATION)); // 4-second duration
             // Transition to next state: Green blinking
             vTaskPrioritySet(greenBlinkTaskHandle, HIGH_PRIORITY);
             vTaskPrioritySet(NULL, LOW_PRIORITY);
@@ -126,7 +129,7 @@ void yellowTask(void *pvParameters) {
     for (;;) {
         if (uxTaskPriorityGet(NULL) == HIGH_PRIORITY) {
             stateYellow();
-            vTaskDelay(pdMS_TO_TICKS(4000)); 
+            vTaskDelay(pdMS_TO_TICKS(STATE_DURATION)); 
             vTaskPrioritySet(redTaskHandle, HIGH_PRIORITY);
             vTaskPrioritySet(NULL, LOW_PRIORITY);
         } else {
