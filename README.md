@@ -59,14 +59,95 @@ Dieses Projekt erweitert die klassische "Ampel mit LEDs"-Übung um eine SPI-basi
 - Sollte mehr als 60 ms kein HIGH-Signal am SPI-Bus detektiert werden, erfolgt ein System-Neustart, beginnend mit dem Fehlerzustand (Gelb blinkend).
 - Die Priorisierung der Interrupts und Tasks erfolgt über das eingesetzte RTOS (z. B. FreeRTOS).
 
-## Weiterführende Dokumentation
 
-- **Code-Dokumentation:**  
-  Alle wichtigen Funktionen und Konfigurationen sind im Quellcode dokumentiert.
+# Code-Dokumentation: 
 
-- **Deployment-Anweisungen:**  
-  Detaillierte Deployment-Anweisungen finden Sie in diesem README und in begleitenden Dokumentationsdateien.
+**GPIO-Pin Definitionen**
 
----
+     #define RED_PIN    1
+     #define YELLOW_PIN 2
+     #define GREEN_PIN  3
 
-_Dieses README dient als initiale Projektbeschreibung und kann im Laufe der Entwicklung erweitert werden._
+Diese Makros definieren die GPIO-Pins, die für die roten, gelben und grünen Ampellichter verwendet werden.
+
+**Task-Prioritäten**
+
+    #define HIGH_PRIORITY 1
+    #define LOW_PRIORITY  0
+
+Zwei Prioritätsstufen werden definiert: HIGH_PRIORITY für aktive Zustände und LOW_PRIORITY für inaktive Tasks.
+
+
+**Ampelzustände**
+
+Jeder Zustand wird durch eine eigene Funktion repräsentiert, die die GPIO-Pins entsprechend setzt.
+
+    Rot: stateRed()
+
+    Rot-Gelb: stateRedYellow()
+
+    Grün: stateGreen()
+
+    Blinkendes Grün: stateGreenBlinking() (grünes Licht blinkt 5-mal)
+
+    Gelb: stateYellow()
+
+**FreeRTOS Task-Funktionen**
+
+Jede Task wird dauerhaft ausgeführt, aber nur aktiv, wenn sie die höchste Priorität hat. Anschließende ist zum Beispiel die redTask angeführt.
+
+
+    void redTask(void *pvParameters) {
+        for (;;) {
+            if (uxTaskPriorityGet(NULL) == HIGH_PRIORITY) {
+                stateRed();
+                vTaskDelay(pdMS_TO_TICKS(STATE_DURATION));
+                vTaskPrioritySet(redYellowTaskHandle, HIGH_PRIORITY);
+                vTaskPrioritySet(NULL, LOW_PRIORITY);
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+        }
+    }
+
+**Falls die Task höchste Priorität hat:**
+
+- stateRed() wird aufgerufen.
+
+- Die Task wartet 4 Sekunden (STATE_DURATION).
+
+- Die nächste Task (redYellowTaskHandle) wird priorisiert.
+
+- Die eigene Priorität wird gesenkt.
+
+- Falls die Task nicht aktiv ist, wartet sie 100 ms.
+
+**Weitere Tasks**
+
+Alle anderen Tasks folgen einem ähnlichen Ablauf und steuern die jeweiligen Zustände.
+
+Hauptprogramm (main)
+
+    int main() {
+        stdio_init_all();
+
+        xTaskCreate(redTask, "Red", 1024, NULL, HIGH_PRIORITY, &redTaskHandle);
+        xTaskCreate(redYellowTask, "RedYellow", 1024, NULL, LOW_PRIORITY, &redYellowTaskHandle);
+        xTaskCreate(greenTask, "Green", 1024, NULL, LOW_PRIORITY, &greenTaskHandle);
+        xTaskCreate(greenBlinkTask, "GreenBlink", 1024, NULL, LOW_PRIORITY, &greenBlinkTaskHandle);
+        xTaskCreate(yellowTask, "Yellow", 1024, NULL, LOW_PRIORITY, &yellowTaskHandle);
+
+        vTaskStartScheduler();
+
+        for (;;);
+        return 0;
+    }
+
+- Initialisiert die UART-Schnittstelle (stdio_init_all()).
+
+- Erstellt alle Tasks mit den entsprechenden Startprioritäten.
+
+- Startet den FreeRTOS Scheduler (vTaskStartScheduler()), der die Aufgabenverwaltung übernimmt
+
+
+
